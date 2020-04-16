@@ -18,21 +18,33 @@ class BuildService(BaseService):
         self.build_envs = dict()
         self.build_file = 'code'
 
-    async def dynamically_compile_ability_code(self, ability):
-        self._stage_code_in_docker_folder(ability)
-        self._run_target_docker(ability=ability, args=self._replace_args_props(ability=ability))
-        self._stage_payload(language=ability.language, payload=ability.build_target)
-        self._purge_build_folder(language=ability.language)
-        return self._build_command_block_syntax(payload=ability.build_target), ability.build_target
+    async def initialize_code_hook_functions(self):
+        for ab in await self.data_svc.locate('abilities'):
+            if ab.code:
+                ab.HOOKS[ab.language] = self.generate_ability_execution_method
+
+    async def generate_ability_execution_method(self, ability):
+        if not ability.test:
+            command, payload = await self._dynamically_compile_ability_code(ability=ability)
+            ability.test = command
+            if payload not in ability.payloads:
+                ability.payloads.append(payload)
 
     async def stage_enabled_dockers(self):
         await self._download_docker_images()
 
     """ PRIVATE """
 
+    async def _dynamically_compile_ability_code(self, ability):
+        self._stage_code_in_docker_folder(ability)
+        self._run_target_docker(ability=ability, args=self._replace_args_props(ability=ability))
+        self._stage_payload(language=ability.language, payload=ability.build_target)
+        self._purge_build_folder(language=ability.language)
+        return self._build_command_block_syntax(payload=ability.build_target), ability.build_target
+
     @staticmethod
     def _build_command_block_syntax(payload):
-        return './%s' % payload
+        return '%s' % payload
 
     async def _download_docker_images(self):
         for k, v in self.get_config(prop='enabled', name='build').items():
@@ -50,8 +62,11 @@ class BuildService(BaseService):
 
     def _stage_payload(self, language, payload):
         src = os.path.join(self.build_directory, language, payload)
+        dst = os.path.join(self.payloads_directory, payload)
         if os.path.exists(src):
-            shutil.move(src=src, dst=self.payloads_directory)
+            if os.path.isfile(dst):
+                os.remove(dst)
+            shutil.move(src=src, dst=dst)
 
     def _stage_code_in_docker_folder(self, ability):
         if ability.code:
