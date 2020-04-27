@@ -1,6 +1,5 @@
 #!/bin/bash
 
-CALDERA_DIR=$(pwd)
 USER=$(printf '%s\n' "${SUDO_USER:-$USER}")
 CRITICAL=1
 WARNING=0
@@ -34,25 +33,6 @@ function install_wrapper() {
 
 function initialize_log() {
     echo "Docker install log">install_log.txt
-}
-
-function extra_error() {
-    if [[ $? == 0 ]]; then
-        installed "$2"
-    else
-        failed "$2" "$1"
-        if [[ $3 == 1 ]]; then
-        CRITICAL_FAIL=1
-            echo $CRITICAL_FAIL
-        else
-            WARNING_FAIL=1
-        fi
-    fi
-}
-
-function run_uprivileged() {
-  su - "$USER" -c "$1"
-  extra_error "$1" "$2" "$3"
 }
 
 function ubuntu_install_docker() {
