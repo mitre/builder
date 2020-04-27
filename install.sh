@@ -59,7 +59,7 @@ function ubuntu_install_docker() {
     install_wrapper "Remove existing docker stubs" "apt-get remove -y docker docker-engine docker.io containerd runc" $WARNING
     install_wrapper "Install pre-requisites" "apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common" $WARNING
     install_wrapper "Add docker GPG key" "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -" $WARNING
-    install_wrapper "Add docker repository" "add-apt-repository \x22deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable\x22" $WARNING
+    install_wrapper "Add docker repository" "add-apt-repository 'deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable'" $WARNING
     install_wrapper "Install docker" "apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io" $WARNING
     install_wrapper "Add user to docker group" "usermod $USER -a -G docker" $CRITICAL
     exec sudo su -l $USER
