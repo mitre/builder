@@ -47,8 +47,7 @@ function ubuntu_install_docker() {
 
 function darwin() {
     [[ $EUID -ne 0 ]] && echo "You must run the script with sudo." && exit 1
-    echo "[-] Installing on OS X..."
-    initialize_log
+    echo "[X] Not implemented at this time..."1
 }
 
 function ubuntu() {
@@ -62,12 +61,12 @@ function kali() {
     [[ $EUID -ne 0 ]] && echo "You must run the script with sudo." && exit 1
     echo "[-] Installing on Kali (Debian)..."
     initialize_log
+    ubuntu_install_docker
 }
 
 function centos() {
     [[ $EUID -ne 0 ]] && echo "You must run the script with sudo." && exit 1
-    echo "[-] Installing on CentOS (RedHat)..."
-    initialize_log
+    echo "[X] Not implemented at this time..."1
 }
 
 if [[ "$(uname)" == *"Darwin"* ]]; then
