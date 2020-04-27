@@ -52,7 +52,7 @@ class BuildService(BaseService):
             data = self.docker_client.images.list(name=v['docker'])
             if not data:
                 data = self.docker_client.images.pull(v['docker'])
-            self.build_envs[k] = data[0]
+            self.build_envs[k] = data[0] if isinstance(data, list) else data
 
     async def _stage_build_dir(self, directory):
         try:
