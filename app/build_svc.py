@@ -36,7 +36,7 @@ class BuildService(BaseService):
     """ PRIVATE """
 
     async def _dynamically_compile_ability_code(self, ability):
-        self._stage_code_in_docker_folder(ability)
+        await self._stage_code_in_docker_folder(ability)
         self._run_target_docker(ability=ability, args=self._replace_args_props(ability=ability))
         self._stage_payload(language=ability.language, payload=ability.build_target)
         self._purge_build_folder(language=ability.language)
@@ -68,10 +68,18 @@ class BuildService(BaseService):
                 os.remove(dst)
             shutil.move(src=src, dst=dst)
 
-    def _stage_code_in_docker_folder(self, ability):
+    async def _stage_code_in_docker_folder(self, ability):
         if ability.code:
             with open(os.path.join(self.build_directory, ability.language, self.build_file), 'w') as f:
                 f.write(self.decode_bytes(ability.code))
+
+        for payload in [p for p in ability.payloads if p.endswith('.dll')]:
+            payload_name = payload
+            if self.is_uuid4(payload):
+                payload_name, _ = self.file_svc.get_payload_name_from_uuid(payload)
+            _, src = await self.file_svc.find_file_path(payload_name)
+            dst = os.path.join(self.build_directory, ability.language)
+            shutil.copy(src=src, dst=dst)
 
     def _purge_build_folder(self, language):
         for f in glob.iglob(f'{self.build_directory}/{language}/*'):
@@ -93,4 +101,8 @@ class BuildService(BaseService):
         env = self.get_config(prop='enabled', name='build').get(ability.language)
         cmd = env['entrypoint_args'].replace('#{code}', self.build_file)
         cmd = cmd.replace('#{build_target}', ability.build_target)
+
+        references = [p for p in ability.payloads if p.endswith('.dll')]
+        reference_cmd = '/r:{}'.format(','.join(references)) if references else ''
+        cmd = cmd.replace('#{references}', reference_cmd)
         return cmd
