@@ -63,9 +63,9 @@ class BuildService(BaseService):
     def _stage_payload(self, language, payload):
         src = os.path.join(self.build_directory, language, payload)
         dst = os.path.join(self.payloads_directory, payload)
+        if os.path.isfile(dst):
+            os.remove(dst)
         if os.path.exists(src):
-            if os.path.isfile(dst):
-                os.remove(dst)
             shutil.move(src=src, dst=dst)
 
     async def _stage_code_in_docker_folder(self, ability):
