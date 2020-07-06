@@ -44,7 +44,7 @@ class BuildService(BaseService):
 
     @staticmethod
     def _build_command_block_syntax(payload):
-        return '%s' % payload
+        return '.\\%s' % payload
 
     async def _download_docker_images(self):
         for k, v in self.get_config(prop='enabled', name='build').items():
