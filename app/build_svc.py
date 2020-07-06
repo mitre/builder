@@ -94,8 +94,7 @@ class BuildService(BaseService):
                                                                os.path.join(self.build_directory, ability.language)):
                                                                dict(bind=env['workdir'], mode='rw')}, detach=True)
         code = container.wait()
-        self.log.debug('Container for %s ran for ability ID %s: %s' % (ability.language, ability.ability_id,
-                                                                       code))
+        self.log.debug('Container for %s ran for ability ID %s: %s' % (ability.language, ability.ability_id, code))
 
     def _replace_args_props(self, ability):
         env = self.get_config(prop='enabled', name='build').get(ability.language)
@@ -103,6 +102,6 @@ class BuildService(BaseService):
         cmd = cmd.replace('#{build_target}', ability.build_target)
 
         references = [p for p in ability.payloads if p.endswith('.dll')]
-        reference_cmd = '/r:{}'.format(','.join(references)) if references else ''
-        cmd = cmd.replace('#{references}', reference_cmd)
+        reference_cmd = ' -r:{}'.format(','.join(references)) if references else ''
+        cmd = cmd.replace(' #{references}', reference_cmd)
         return cmd
