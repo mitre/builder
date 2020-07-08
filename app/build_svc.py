@@ -67,7 +67,7 @@ class BuildService(BaseService):
         :return: Agent command to run
         :rtype: string
         """
-        return '.\\%s' % payload
+        return '.\\{}'.format(payload)
 
     async def _download_docker_images(self):
         """Download required docker images"""
@@ -87,7 +87,7 @@ class BuildService(BaseService):
         try:
             os.mkdir(os.path.join(self.build_directory, language))
         except FileExistsError:
-            self.log.debug('Build directory for %s already constructed' % language)
+            self.log.debug('Build directory for {} already constructed'.format(language))
 
     def _stage_payload(self, language, payload):
         """Move Docker-built payload to CALDERA payload directory
@@ -141,13 +141,13 @@ class BuildService(BaseService):
         """
         env = self.get_config(prop='enabled', name='build').get(ability.language)
         container = self.docker_client.containers.run(image=self.build_envs[ability.language].short_id, remove=True,
-                                                      command=('%s %s' % (env['entrypoint'], args)).split(' '),
+                                                      command='{} {}'.format(env['entrypoint'], args).split(' '),
                                                       working_dir=env['workdir'],
                                                       volumes={os.path.abspath(
                                                                os.path.join(self.build_directory, ability.language)):
                                                                dict(bind=env['workdir'], mode='rw')}, detach=True)
         code = container.wait()
-        self.log.debug('Container for %s ran for ability ID %s: %s' % (ability.language, ability.ability_id, code))
+        self.log.debug('Container for {} ran for ability ID {}: {}'.format(ability.language, ability.ability_id, code))
 
     def _check_errors(self, language):
         """Check for errors which occurred during the build
