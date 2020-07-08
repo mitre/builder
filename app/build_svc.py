@@ -2,6 +2,7 @@ import docker
 import glob
 import os
 import shutil
+import json
 
 from app.utility.base_service import BaseService
 
@@ -38,6 +39,7 @@ class BuildService(BaseService):
     async def _dynamically_compile_ability_code(self, ability):
         await self._stage_code_in_docker_folder(ability)
         self._run_target_docker(ability=ability, args=self._replace_args_props(ability=ability))
+        self._check_errors(language=ability.language)
         self._stage_payload(language=ability.language, payload=ability.build_target)
         self._purge_build_folder(language=ability.language)
         return self._build_command_block_syntax(payload=ability.build_target), ability.build_target
@@ -95,6 +97,24 @@ class BuildService(BaseService):
                                                                dict(bind=env['workdir'], mode='rw')}, detach=True)
         code = container.wait()
         self.log.debug('Container for %s ran for ability ID %s: %s' % (ability.language, ability.ability_id, code))
+
+    def _check_errors(self, language):
+        error_log = os.path.join(self.build_directory, language, 'error.log')
+        if os.path.isfile(error_log):
+            with open(error_log) as f:
+                log_data = json.load(f)
+
+            errors = log_data['runs'][0]['results']
+            for error in errors:
+                location_data = ''
+                if error.get('locations'):
+                    for location in error.get('locations'):
+                        region = location['resultFile']['region']
+                        location_data = '{}({},{},{},{}): '.format(location['resultFile']['uri'],
+                                                                   region.get('startLine'), region.get('startColumn'),
+                                                                   region.get('endLine'), region.get('endColumn'))
+                self.log.debug('{}{} {}: {}'.format(location_data, error.get('level').capitalize(), error.get('ruleId'),
+                                                    error.get('message')))
 
     def _replace_args_props(self, ability):
         env = self.get_config(prop='enabled', name='build').get(ability.language)
