@@ -143,6 +143,7 @@ class BuildService(BaseService):
         container = self.docker_client.containers.run(image=self.build_envs[ability.language].short_id, remove=True,
                                                       command='{} {}'.format(env['entrypoint'], args).split(' '),
                                                       working_dir=env['workdir'],
+                                                      user=os.getuid(),
                                                       volumes={os.path.abspath(
                                                                os.path.join(self.build_directory, ability.language)):
                                                                dict(bind=env['workdir'], mode='rw')}, detach=True)
