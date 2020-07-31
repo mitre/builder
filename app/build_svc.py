@@ -94,6 +94,9 @@ class BuildService(BaseService):
     def _stage_payload(self, language, payload):
         """Move Docker-built payload to CALDERA payload directory
 
+        Adds special rules:
+        - Appends .exe to .donut files.
+
         :param language: Language the payload was built for
         :param language: string
         :param payload: Payload name
@@ -101,6 +104,8 @@ class BuildService(BaseService):
         """
         src = os.path.join(self.build_directory, language, payload)
         dst = os.path.join(self.payloads_directory, payload)
+        if dst.endswith('.donut'):
+            dst = '{}.exe'.format(dst)
         if os.path.isfile(dst):
             os.remove(dst)
         if os.path.exists(src):
