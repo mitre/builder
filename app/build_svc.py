@@ -31,11 +31,13 @@ class BuildService(BaseService):
         :param ability: Ability to set command and payloads for
         :type ability: Ability
         """
-        if not ability.test:
-            command, payload = await self._dynamically_compile_ability_code(ability=ability)
-            ability.test = command
-            if payload not in ability.payloads:
-                ability.payloads.append(payload)
+        if not ability.additional_info.get('built'):
+            await self._dynamically_compile_ability_code(ability=ability)
+
+            if not ability.test:
+                ability.test = self._build_command_block_syntax(payload=ability.build_target)
+            if ability.build_target not in ability.payloads:
+                ability.payloads.append(ability.build_target)
 
     async def stage_enabled_dockers(self):
         """Start downloading docker images"""
@@ -56,7 +58,7 @@ class BuildService(BaseService):
         self._check_errors(language=ability.language)
         self._stage_payload(language=ability.language, payload=ability.build_target)
         self._purge_build_directory(language=ability.language)
-        return self._build_command_block_syntax(payload=ability.build_target), ability.build_target
+        ability.additional_info['built'] = True
 
     @staticmethod
     def _build_command_block_syntax(payload):
