@@ -1,8 +1,9 @@
-import docker
 import glob
 import os
 import shutil
 import json
+
+import docker
 
 from app.utility.base_service import BaseService
 
