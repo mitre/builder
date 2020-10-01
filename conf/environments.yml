@@ -4,4 +4,5 @@ enabled:
     workdir: /opt/build
     entrypoint: csc
     entrypoint_args: |
-      #{code} /out:#{build_target}
+      #{code} -out:#{build_target} #{references} -errorlog:error.log
+
