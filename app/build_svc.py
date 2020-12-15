@@ -181,7 +181,7 @@ class BuildService(BaseService):
                                                                    region.get('endLine'), region.get('endColumn'))
                     self.log.debug('{}{} {}: {}'.format(location_data, error.get('level').capitalize(),
                                                         error.get('ruleId'), error.get('message')))
-        elif language.startswith('cpp_'):
+        elif language.startswith('c_') or language.startswith('cpp_'):
             error_log = os.path.join(self.build_directory, language, 'error.log')
             if os.path.isfile(error_log):
                 with open(error_log) as f:
