@@ -120,7 +120,7 @@ class BuildService(BaseService):
         """
         if ability.code:
             with open(os.path.join(self.build_directory, ability.language, self.build_file), 'w') as f:
-                f.write(self.decode_bytes(ability.code))
+                f.write(self.decode_bytes(ability.code, strip_newlines=False))
 
         for payload in [p for p in ability.payloads if p.endswith('.dll')]:
             payload_name = payload
