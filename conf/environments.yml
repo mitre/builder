@@ -4,8 +4,13 @@ enabled:
     workdir: /opt/build
     build_command: |
       csc #{code} -out:#{build_target} #{references} -errorlog:error.log
-  cpp_windows:
+  cpp_windows_x64:
     docker: dockcross/windows-static-x64
+    workdir: /opt/build
+    build_command: |
+      /bin/bash -c "$CXX -x c++ -o #{build_target} #{code} > error.log 2>&1"
+  cpp_windows_x86:
+    docker: dockcross/windows-static-x86
     workdir: /opt/build
     build_command: |
       /bin/bash -c "$CXX -x c++ -o #{build_target} #{code} > error.log 2>&1"
