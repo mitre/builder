@@ -164,9 +164,9 @@ class BuildService(BaseService):
         :param language: Language to check errors for
         :type language: string
         """
-        if language == 'csharp':
-            error_log = os.path.join(self.build_directory, language, 'error.log')
-            if os.path.isfile(error_log):
+        error_log = os.path.join(self.build_directory, language, 'error.log')
+        if os.path.isfile(error_log):
+            if language == 'csharp':
                 with open(error_log) as f:
                     log_data = json.load(f)
 
@@ -181,9 +181,11 @@ class BuildService(BaseService):
                                                                    region.get('endLine'), region.get('endColumn'))
                     self.log.debug('{}{} {}: {}'.format(location_data, error.get('level').capitalize(),
                                                         error.get('ruleId'), error.get('message')))
-        elif language.startswith('c_') or language.startswith('cpp_'):
-            error_log = os.path.join(self.build_directory, language, 'error.log')
-            if os.path.isfile(error_log):
+            elif language.startswith('c_'):
+                with open(error_log) as f:
+                    for line in f:
+                        self.log.debug(line.rstrip())
+            elif language.startswith('cpp_'):
                 with open(error_log) as f:
                     for line in f:
                         self.log.debug(line.rstrip())
