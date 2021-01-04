@@ -19,6 +19,7 @@ class BuildService(BaseService):
         self.build_directory = os.path.join('plugins', 'builder', 'build')
         self.build_envs = dict()
         self.build_file = 'code'
+        self.error_file = 'error.log'
 
     async def initialize_code_hook_functions(self):
         """Start dynamic code compilation for abilities"""
@@ -119,7 +120,9 @@ class BuildService(BaseService):
         :type ability: Ability
         """
         if ability.code:
-            with open(os.path.join(self.build_directory, ability.language, self.build_file), 'w') as f:
+            env = self.get_config(prop='enabled', name='build').get(ability.language)
+            build_file = '{}.{}'.format(self.build_file, env['extension']) if env.get('extension') else self.build_file
+            with open(os.path.join(self.build_directory, ability.language, build_file), 'w') as f:
                 f.write(self.decode_bytes(ability.code, strip_newlines=False))
 
         for payload in [p for p in ability.payloads if p.endswith('.dll')]:
@@ -164,7 +167,7 @@ class BuildService(BaseService):
         :param language: Language to check errors for
         :type language: string
         """
-        error_log = os.path.join(self.build_directory, language, 'error.log')
+        error_log = os.path.join(self.build_directory, language, self.error_file)
         if os.path.isfile(error_log):
             if language == 'csharp':
                 with open(error_log) as f:
@@ -189,6 +192,10 @@ class BuildService(BaseService):
                 with open(error_log) as f:
                     for line in f:
                         self.log.debug(line.rstrip())
+            elif language.startswith('go_'):
+                with open(error_log) as f:
+                    for line in f:
+                        self.log.debug(line.rstrip())
 
     def _replace_build_vars(self, ability):
         """Replace template arguments in build command
@@ -199,12 +206,27 @@ class BuildService(BaseService):
         :rtype: string
         """
         env = self.get_config(prop='enabled', name='build').get(ability.language)
-        build_command = env['build_command'].replace('#{code}', self.build_file)
+        build_file = '{}.{}'.format(self.build_file, env['extension']) if env.get('extension') else self.build_file
+        build_command = env['build_command'].replace('#{code}', build_file)
         build_command = build_command.replace('#{build_target}', ability.build_target)
 
+        build_command = self._replace_reference_vars(ability, build_command)
+
+        return build_command
+
+    @staticmethod
+    def _replace_reference_vars(ability, build_command):
+        """Replace reference arguments in build command
+
+        :param ability: Ability to replace references for
+        :type ability: Ability
+        :param build_command: Build command
+        :type build_command: str
+        :return: Command string with replaced references
+        :rtype: string
+        """
         if ability.language == 'csharp':
             references = [p for p in ability.payloads if p.endswith('.dll')]
             reference_cmd = ' -r:{}'.format(','.join(references)) if references else ''
             build_command = build_command.replace(' #{references}', reference_cmd)
-
         return build_command
