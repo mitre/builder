@@ -55,7 +55,7 @@ class BuildService(BaseService):
         :rtype: string, string
         """
         await self._stage_docker_directory(ability)
-        self._run_target_docker(ability=ability, args=self._replace_args_props(ability=ability))
+        self._run_target_docker(ability=ability, build_command=self._replace_build_vars(ability=ability))
         self._check_errors(language=ability.language)
         self._stage_payload(language=ability.language, payload=ability.build_target)
         self._purge_build_directory(language=ability.language)
@@ -139,17 +139,17 @@ class BuildService(BaseService):
         for f in glob.iglob(f'{self.build_directory}/{language}/*'):
             os.remove(f)
 
-    def _run_target_docker(self, ability, args):
+    def _run_target_docker(self, ability, build_command):
         """Run docker container to build ability files
 
         :param ability: Ability to build code for
         :type ability: Ability
-        :param args: Arguments to pass to the entrypoint command
-        :type args: string
+        :param build_command: Command to run on docker container
+        :type build_command: string
         """
         env = self.get_config(prop='enabled', name='build').get(ability.language)
         container = self.docker_client.containers.run(image=self.build_envs[ability.language].short_id, remove=True,
-                                                      command='{} {}'.format(env['entrypoint'], args).split(' '),
+                                                      command=build_command,
                                                       working_dir=env['workdir'],
                                                       user=os.getuid(),
                                                       volumes={os.path.abspath(
@@ -164,9 +164,9 @@ class BuildService(BaseService):
         :param language: Language to check errors for
         :type language: string
         """
-        if language == 'csharp':
-            error_log = os.path.join(self.build_directory, language, 'error.log')
-            if os.path.isfile(error_log):
+        error_log = os.path.join(self.build_directory, language, 'error.log')
+        if os.path.isfile(error_log):
+            if language == 'csharp':
                 with open(error_log) as f:
                     log_data = json.load(f)
 
@@ -181,8 +181,16 @@ class BuildService(BaseService):
                                                                    region.get('endLine'), region.get('endColumn'))
                     self.log.debug('{}{} {}: {}'.format(location_data, error.get('level').capitalize(),
                                                         error.get('ruleId'), error.get('message')))
+            elif language.startswith('c_'):
+                with open(error_log) as f:
+                    for line in f:
+                        self.log.debug(line.rstrip())
+            elif language.startswith('cpp_'):
+                with open(error_log) as f:
+                    for line in f:
+                        self.log.debug(line.rstrip())
 
-    def _replace_args_props(self, ability):
+    def _replace_build_vars(self, ability):
         """Replace template arguments in build command
 
         :param ability: Ability to create command for
@@ -191,10 +199,12 @@ class BuildService(BaseService):
         :rtype: string
         """
         env = self.get_config(prop='enabled', name='build').get(ability.language)
-        cmd = env['entrypoint_args'].replace('#{code}', self.build_file)
-        cmd = cmd.replace('#{build_target}', ability.build_target)
+        build_command = env['build_command'].replace('#{code}', self.build_file)
+        build_command = build_command.replace('#{build_target}', ability.build_target)
 
-        references = [p for p in ability.payloads if p.endswith('.dll')]
-        reference_cmd = ' -r:{}'.format(','.join(references)) if references else ''
-        cmd = cmd.replace(' #{references}', reference_cmd)
-        return cmd
+        if ability.language == 'csharp':
+            references = [p for p in ability.payloads if p.endswith('.dll')]
+            reference_cmd = ' -r:{}'.format(','.join(references)) if references else ''
+            build_command = build_command.replace(' #{references}', reference_cmd)
+
+        return build_command
