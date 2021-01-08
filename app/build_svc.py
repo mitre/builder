@@ -24,7 +24,7 @@ class BuildService(BaseService):
     async def initialize_code_hook_functions(self):
         """Start dynamic code compilation for abilities"""
         for ab in await self.data_svc.locate('abilities'):
-            if ab.code:
+            if ab.code and ab.language:
                 ab.HOOKS[ab.language] = self.generate_ability_execution_method
 
     async def generate_ability_execution_method(self, ability):
@@ -55,12 +55,21 @@ class BuildService(BaseService):
         :return: Command to run, payload name
         :rtype: string, string
         """
-        await self._stage_docker_directory(ability)
-        self._run_target_docker(ability=ability, build_command=self._replace_build_vars(ability=ability))
-        self._check_errors(language=ability.language)
-        self._stage_payload(language=ability.language, payload=ability.build_target)
-        self._purge_build_directory(language=ability.language)
+        env = self.get_config(prop='enabled', name='build').get(ability.language)
+        if not env:
+            if not ability.additional_info.get('build_error'):
+                ability.additional_info['build_error'] = True
+                self.log.debug('Error building ability {}: environment "{}" not configured'.format(ability.ability_id,
+                                                                                                   ability.language))
+            return
+
+        await self._stage_docker_directory(env, ability)
+        self._run_target_docker(env, ability, self._replace_build_vars(env, ability))
+        self._check_errors(ability.language)
+        self._stage_payload(ability.language, ability.build_target)
+        self._purge_build_directory(ability.language)
         ability.additional_info['built'] = True
+        ability.additional_info['build_error'] = False
 
     @staticmethod
     def _build_command_block_syntax(payload):
@@ -113,17 +122,17 @@ class BuildService(BaseService):
         if os.path.exists(src):
             shutil.move(src=src, dst=dst)
 
-    async def _stage_docker_directory(self, ability):
+    async def _stage_docker_directory(self, env, ability):
         """Create code file and DLL references in Docker build directory
 
+        :param env: Build environment settings
+        :type env: dict
         :param ability: Ability to be built
         :type ability: Ability
         """
-        if ability.code:
-            env = self.get_config(prop='enabled', name='build').get(ability.language)
-            build_file = '{}.{}'.format(self.build_file, env['extension']) if env.get('extension') else self.build_file
-            with open(os.path.join(self.build_directory, ability.language, build_file), 'w') as f:
-                f.write(self.decode_bytes(ability.code, strip_newlines=False))
+        build_file = '{}.{}'.format(self.build_file, env['extension']) if env.get('extension') else self.build_file
+        with open(os.path.join(self.build_directory, ability.language, build_file), 'w') as f:
+            f.write(self.decode_bytes(ability.code, strip_newlines=False))
 
         for payload in [p for p in ability.payloads if p.endswith('.dll')]:
             payload_name = payload
@@ -142,15 +151,16 @@ class BuildService(BaseService):
         for f in glob.iglob(f'{self.build_directory}/{language}/*'):
             os.remove(f)
 
-    def _run_target_docker(self, ability, build_command):
+    def _run_target_docker(self, env, ability, build_command):
         """Run docker container to build ability files
 
+        :param env: Build environment settings
+        :type env: dict
         :param ability: Ability to build code for
         :type ability: Ability
         :param build_command: Command to run on docker container
         :type build_command: string
         """
-        env = self.get_config(prop='enabled', name='build').get(ability.language)
         container = self.docker_client.containers.run(image=self.build_envs[ability.language].short_id, remove=True,
                                                       command=build_command,
                                                       working_dir=env['workdir'],
@@ -197,15 +207,16 @@ class BuildService(BaseService):
                     for line in f:
                         self.log.debug(line.rstrip())
 
-    def _replace_build_vars(self, ability):
+    def _replace_build_vars(self, env, ability):
         """Replace template arguments in build command
 
+        :param env: Build environment settings
+        :type env: dict
         :param ability: Ability to create command for
         :type ability: Ability
         :return: Created command string
         :rtype: string
         """
-        env = self.get_config(prop='enabled', name='build').get(ability.language)
         build_file = '{}.{}'.format(self.build_file, env['extension']) if env.get('extension') else self.build_file
         build_command = env['build_command'].replace('#{code}', build_file)
         build_command = build_command.replace('#{build_target}', ability.build_target)
