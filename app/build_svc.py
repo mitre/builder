@@ -2,6 +2,7 @@ import glob
 import os
 import shutil
 import json
+import logging
 
 import docker
 
@@ -14,12 +15,16 @@ class BuildService(BaseService):
         self.log = self.add_service('build_svc', self)
         self.file_svc = services.get('file_svc')
         self.data_svc = services.get('data_svc')
-        self.docker_client = docker.from_env()
         self.payloads_directory = os.path.join('plugins', 'builder', 'payloads')
         self.build_directory = os.path.join('plugins', 'builder', 'build')
         self.build_envs = dict()
         self.build_file = 'code'
         self.error_file = 'error.log'
+
+        logging.getLogger('docker').setLevel(logging.WARNING)
+        self.urllib3_log_level = logging.WARNING
+        self.urllib3_log_level_orig = logging.getLogger('urllib3').getEffectiveLevel()
+        self.docker_client = self._create_docker_client()
 
     async def initialize_code_hook_functions(self):
         """Start dynamic code compilation for abilities"""
@@ -47,6 +52,21 @@ class BuildService(BaseService):
 
     """ PRIVATE """
 
+    def _create_docker_client(self):
+        """Create docker client from environment"""
+        self._set_urllib3_logging()
+        client = docker.from_env()
+        self._unset_urllib3_logging()
+        return client
+
+    def _set_urllib3_logging(self):
+        """Silence urllib3 requests"""
+        logging.getLogger('urllib3').setLevel(self.urllib3_log_level)
+
+    def _unset_urllib3_logging(self):
+        """Unsilence urllib3 requests"""
+        logging.getLogger('urllib3').setLevel(self.urllib3_log_level_orig)
+
     async def _dynamically_compile_ability_code(self, ability):
         """Dynamically compile code for an Ability
 
@@ -55,6 +75,7 @@ class BuildService(BaseService):
         :return: Command to run, payload name
         :rtype: string, string
         """
+        self.log.debug('Building ability {}'.format(ability.ability_id))
         env = self.get_config(prop='enabled', name='build').get(ability.language)
         if not env:
             if not ability.additional_info.get('build_error'):
@@ -84,12 +105,14 @@ class BuildService(BaseService):
 
     async def _download_docker_images(self):
         """Download required docker images"""
+        self._set_urllib3_logging()
         for language, language_data in self.get_config(prop='enabled', name='build').items():
             await self._stage_build_dir(language=language)
             data = self.docker_client.images.list(name=language_data['docker'])
             if not data:
                 data = self.docker_client.images.pull(language_data['docker'])
             self.build_envs[language] = data[0] if isinstance(data, list) else data
+        self._unset_urllib3_logging()
 
     async def _stage_build_dir(self, language):
         """Create a build directory for a particular language
@@ -161,6 +184,7 @@ class BuildService(BaseService):
         :param build_command: Command to run on docker container
         :type build_command: string
         """
+        self._set_urllib3_logging()
         container = self.docker_client.containers.run(image=self.build_envs[ability.language].short_id, remove=True,
                                                       command=build_command,
                                                       working_dir=env['workdir'],
@@ -169,6 +193,7 @@ class BuildService(BaseService):
                                                                os.path.join(self.build_directory, ability.language)):
                                                                dict(bind=env['workdir'], mode='rw')}, detach=True)
         code = container.wait()
+        self._unset_urllib3_logging()
         self.log.debug('Container for {} ran for ability ID {}: {}'.format(ability.language, ability.ability_id, code))
 
     def _check_errors(self, language):
