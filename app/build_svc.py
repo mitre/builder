@@ -97,10 +97,10 @@ class BuildService(BaseService):
         :param language: Language to create directory for
         :type language: string
         """
-        try:
-            os.mkdir(os.path.join(self.build_directory, language))
-        except FileExistsError:
-            self.log.debug('Build directory for {} already constructed'.format(language))
+        build_dir = os.path.join(self.build_directory, language)
+        if not os.path.exists(build_dir):
+            os.mkdir(build_dir)
+            self.log.debug('Build directory created for {}'.format(language))
 
     def _stage_payload(self, language, payload):
         """Move Docker-built payload to CALDERA payload directory
