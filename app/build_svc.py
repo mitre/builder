@@ -2,6 +2,7 @@ import glob
 import os
 import shutil
 import json
+import logging
 
 import docker
 
@@ -14,12 +15,16 @@ class BuildService(BaseService):
         self.log = self.add_service('build_svc', self)
         self.file_svc = services.get('file_svc')
         self.data_svc = services.get('data_svc')
-        self.docker_client = docker.from_env()
         self.payloads_directory = os.path.join('plugins', 'builder', 'payloads')
         self.build_directory = os.path.join('plugins', 'builder', 'build')
         self.build_envs = dict()
         self.build_file = 'code'
         self.error_file = 'error.log'
+
+        logging.getLogger('docker').setLevel(logging.WARNING)
+        self.urllib3_log_level = logging.WARNING
+        self.urllib3_log_level_orig = logging.getLogger('urllib3').getEffectiveLevel()
+        self.docker_client = self._create_docker_client()
 
     async def initialize_code_hook_functions(self):
         """Start dynamic code compilation for abilities"""
@@ -34,7 +39,7 @@ class BuildService(BaseService):
         :type ability: Ability
         """
         if not ability.additional_info.get('built'):
-            await self._dynamically_compile_ability_code(ability=ability)
+            await self._build_ability(ability=ability)
 
             if not ability.test:
                 ability.test = self._build_command_block_syntax(payload=ability.build_target)
@@ -43,18 +48,36 @@ class BuildService(BaseService):
 
     async def stage_enabled_dockers(self):
         """Start downloading docker images"""
+        self._set_urllib3_logging()
         await self._download_docker_images()
+        self._unset_urllib3_logging()
 
     """ PRIVATE """
 
-    async def _dynamically_compile_ability_code(self, ability):
-        """Dynamically compile code for an Ability
+    def _set_urllib3_logging(self):
+        """Silence urllib3 requests"""
+        logging.getLogger('urllib3').setLevel(self.urllib3_log_level)
+
+    def _unset_urllib3_logging(self):
+        """Unsilence urllib3 requests"""
+        logging.getLogger('urllib3').setLevel(self.urllib3_log_level_orig)
+
+    def _create_docker_client(self):
+        """Create docker client from environment"""
+        self._set_urllib3_logging()
+        client = docker.from_env()
+        self._unset_urllib3_logging()
+        return client
+
+    async def _build_ability(self, ability):
+        """Dynamically compile an Ability
 
         :param ability: Ability to dynamically compile code for
         :type ability: Ability
         :return: Command to run, payload name
         :rtype: string, string
         """
+        self.log.debug('Building ability {}'.format(ability.ability_id))
         env = self.get_config(prop='enabled', name='build').get(ability.language)
         if not env:
             if not ability.additional_info.get('build_error'):
@@ -63,6 +86,20 @@ class BuildService(BaseService):
                                                                                                    ability.language))
             return
 
+        self._set_urllib3_logging()
+        await self._build_ability_with_docker(env, ability)
+        self._unset_urllib3_logging()
+
+    async def _build_ability_with_docker(self, env, ability):
+        """Dynamically compile Ability in Docker
+
+        :param env: Build environment settings
+        :type env: dict
+        :param ability: Ability to dynamically compile code for
+        :type ability: Ability
+        :return: Command to run, payload name
+        :rtype: string, string
+        """
         await self._stage_docker_directory(env, ability)
         self._run_target_docker(env, ability, self._replace_build_vars(env, ability))
         self._check_errors(ability.language)
@@ -97,10 +134,10 @@ class BuildService(BaseService):
         :param language: Language to create directory for
         :type language: string
         """
-        try:
-            os.mkdir(os.path.join(self.build_directory, language))
-        except FileExistsError:
-            self.log.debug('Build directory for {} already constructed'.format(language))
+        build_dir = os.path.join(self.build_directory, language)
+        if not os.path.exists(build_dir):
+            os.mkdir(build_dir)
+            self.log.debug('Build directory created for {}'.format(language))
 
     def _stage_payload(self, language, payload):
         """Move Docker-built payload to CALDERA payload directory
