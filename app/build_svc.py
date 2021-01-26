@@ -125,6 +125,7 @@ class BuildService(BaseService):
             await self._stage_build_dir(language=language)
             data = self.docker_client.images.list(name=language_data['docker'])
             if not data:
+                self.log.info('Downloading docker image for builder plugin: {}'.format(language_data['docker']))
                 data = self.docker_client.images.pull(language_data['docker'])
             self.build_envs[language] = data[0] if isinstance(data, list) else data
 
