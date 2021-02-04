@@ -41,6 +41,9 @@ class BuildService(BaseService):
         if not ability.additional_info.get('built'):
             await self._build_ability(ability=ability)
 
+            for module in self._get_go_modules(ability):
+                ability.payloads.remove(module)
+
             if not ability.test:
                 ability.test = self._build_command_block_syntax(payload=ability.build_target)
             if ability.build_target not in ability.payloads:
@@ -100,6 +103,7 @@ class BuildService(BaseService):
         :return: Command to run, payload name
         :rtype: string, string
         """
+        self._purge_build_directory(ability.language)
         await self._stage_docker_directory(env, ability)
         self._run_target_docker(env, ability, self._replace_build_vars(env, ability))
         self._check_errors(ability.language)
@@ -161,7 +165,7 @@ class BuildService(BaseService):
             shutil.move(src=src, dst=dst)
 
     async def _stage_docker_directory(self, env, ability):
-        """Create code file and DLL references in Docker build directory
+        """Create code file and references in Docker build directory
 
         :param env: Build environment settings
         :type env: dict
@@ -172,7 +176,7 @@ class BuildService(BaseService):
         with open(os.path.join(self.build_directory, ability.language, build_file), 'w') as f:
             f.write(self.decode_bytes(ability.code, strip_newlines=False))
 
-        for payload in [p for p in ability.payloads if p.endswith('.dll')]:
+        for payload in self._get_build_payloads(ability):
             payload_name = payload
             if self.is_uuid4(payload):
                 payload_name, _ = self.file_svc.get_payload_name_from_uuid(payload)
@@ -186,8 +190,11 @@ class BuildService(BaseService):
         :param language: Language to clear build directory for
         :type language: string
         """
-        for f in glob.iglob(f'{self.build_directory}/{language}/*'):
-            os.remove(f)
+        for root, dirs, files in os.walk(os.path.join(self.build_directory, language)):
+            for f in files:
+                os.remove(os.path.join(root, f))
+            for d in dirs:
+                shutil.rmtree(os.path.join(root, d))
 
     def _run_target_docker(self, env, ability, build_command):
         """Run docker container to build ability files
@@ -258,13 +265,10 @@ class BuildService(BaseService):
         build_file = '{}.{}'.format(self.build_file, env['extension']) if env.get('extension') else self.build_file
         build_command = env['build_command'].replace('#{code}', build_file)
         build_command = build_command.replace('#{build_target}', ability.build_target)
-
-        build_command = self._replace_reference_vars(ability, build_command)
-
+        build_command = self._replace_build_payload_vars(ability, build_command)
         return build_command
 
-    @staticmethod
-    def _replace_reference_vars(ability, build_command):
+    def _replace_build_payload_vars(self, ability, build_command):
         """Replace reference arguments in build command
 
         :param ability: Ability to replace references for
@@ -275,7 +279,45 @@ class BuildService(BaseService):
         :rtype: string
         """
         if ability.language == 'csharp':
-            references = [p for p in ability.payloads if p.endswith('.dll')]
+            references = self._get_csharp_references(ability)
             reference_cmd = ' -r:{}'.format(','.join(references)) if references else ''
             build_command = build_command.replace(' #{references}', reference_cmd)
+        elif ability.language.startswith('go_'):
+            modules = self._get_go_modules(ability)
+            module_cmds = ['tar -xf {} && go mod init */*/*'.format(m) for m in modules]
+            module_cmd = '{}; '.format('; '.join(module_cmds))
+            build_command = build_command.replace('#{modules} ', module_cmd)
+
         return build_command
+
+    def _get_build_payloads(self, ability):
+        """Get additional payloads required for building
+
+        :param ability: Ability to get build payloads for
+        :type ability: Ability
+        :return: Required references and modules
+        :rtype: List[str]
+        """
+        return self._get_csharp_references(ability) + self._get_go_modules(ability)
+
+    @staticmethod
+    def _get_csharp_references(ability):
+        """Get C# DLL references
+
+        :param ability: Ability to get references for
+        :type ability: Ability
+        :return: C# DLLs
+        :rtype: List[str]
+        """
+        return [p for p in ability.payloads if p.endswith('.dll')] if ability.language == 'csharp' else []
+
+    @staticmethod
+    def _get_go_modules(ability):
+        """Get Golang modules
+
+        :param ability: Ability to get modules for
+        :type ability: Ability
+        :return: Golang modules
+        :rtype: List[str]
+        """
+        return [p for p in ability.payloads if '.tar' in p] if ability.language.startswith('go_') else []
