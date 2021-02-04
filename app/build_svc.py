@@ -285,7 +285,7 @@ class BuildService(BaseService):
         elif ability.language.startswith('go_'):
             modules = self._get_go_modules(ability)
             module_cmds = ['tar -xf {} && go mod init */*/*'.format(m) for m in modules]
-            module_cmd = '{}; '.format('; '.join(module_cmds))
+            module_cmd = '{}; '.format('; '.join(module_cmds)) if module_cmds else ''
             build_command = build_command.replace('#{modules} ', module_cmd)
 
         return build_command
