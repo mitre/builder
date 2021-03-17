@@ -40,4 +40,4 @@ enabled:
     extension: go
     workdir: /go/src
     build_command: |
-      /bin/bash -c "#{modules} GOOS=linux GOARCH=amd64 GOCACHE=/go/src/.cache go build -o #{build_target} > error.log 2>&1"
+      /bin/bash -c "#{modules} GOOS=linux GOARCH=amd64 GOCACHE=/go/src/.cache CGO_ENABLED=0 go build -o #{build_target} > error.log 2>&1"
