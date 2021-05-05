@@ -84,14 +84,14 @@ class BuildService(BaseService):
         :return: Command to run, payload name
         :rtype: string, string
         """
-        self.log.debug('Building {}/{} ({}) for ability {}'.format(executor.platform, executor.name, executor.language,
-                                                                   ability.ability_id))
+        self.log.debug('Building %s/%s (%s) for ability %s', executor.platform, executor.name, executor.language,
+                       ability.ability_id)
         env = self.get_config(prop='enabled', name='build').get(executor.language)
         if not env:
             if not executor.additional_info.get('build_error'):
                 executor.additional_info['build_error'] = True
-                self.log.debug('Error building ability {}: environment "{}" not configured'.format(ability.ability_id,
-                                                                                                   executor.language))
+                self.log.debug('Error building ability %s: environment "%s" not configured', ability.ability_id,
+                               executor.language)
             return
 
         self._set_urllib3_logging()
@@ -136,7 +136,7 @@ class BuildService(BaseService):
             await self._stage_build_dir(language=language)
             data = self.docker_client.images.list(name=language_data['docker'])
             if not data:
-                self.log.info('Downloading docker image for builder plugin: {}'.format(language_data['docker']))
+                self.log.info('Downloading docker image for builder plugin: %s', language_data['docker'])
                 data = self.docker_client.images.pull(language_data['docker'])
             self.build_envs[language] = data[0] if isinstance(data, list) else data
 
@@ -149,7 +149,7 @@ class BuildService(BaseService):
         build_dir = os.path.join(self.build_directory, language)
         if not os.path.exists(build_dir):
             os.mkdir(build_dir)
-            self.log.debug('Build directory created for {}'.format(language))
+            self.log.debug('Build directory created for %s', language)
 
     def _stage_payload(self, language, payload):
         """Move Docker-built payload to CALDERA payload directory
@@ -223,9 +223,8 @@ class BuildService(BaseService):
                                                                os.path.join(self.build_directory, executor.language)):
                                                                dict(bind=env['workdir'], mode='rw')}, detach=True)
         exit_information = container.wait()
-        self.log.debug('Container for {} ({}/{}) ran for ability ID {}: {}'.format(executor.language, executor.platform,
-                                                                                   executor.name, ability.ability_id,
-                                                                                   exit_information))
+        self.log.debug('Container for %s (%s/%s) ran for ability ID %s: %s', executor.language, executor.platform,
+                       executor.name, ability.ability_id, exit_information)
 
     def _check_errors(self, language):
         """Check for errors which occurred during the build
@@ -248,8 +247,8 @@ class BuildService(BaseService):
                         location_data = '{}({},{},{},{}): '.format(locations[0]['resultFile']['uri'],
                                                                    region.get('startLine'), region.get('startColumn'),
                                                                    region.get('endLine'), region.get('endColumn'))
-                    self.log.debug('{}{} {}: {}'.format(location_data, error.get('level').capitalize(),
-                                                        error.get('ruleId'), error.get('message')))
+                    self.log.debug('%s%s %s: %s', location_data, error.get('level').capitalize(), error.get('ruleId'),
+                                   error.get('message'))
             elif language.startswith('c_'):
                 with open(error_log) as f:
                     for line in f:
