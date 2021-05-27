@@ -10,17 +10,9 @@
                 <table class="obfuscation-table" border=1 frame=void rules=rows>
                     <tr>
                     {% for env in envs %}
-                        {% for key, value in envs[env].items() %}
-                            <tr>
-                                <td>
-                                {% if loop.first %}
-                                        <h4>{{ env }}</h4>
-                                {% endif %}
-                                </td>
-                                <td>{{ key }}</td>
-                                <td>{{ value }}</td>
-                            </tr>
-                        {% endfor %}
+                        <td>
+                            <h4>{{ env }}</h4>
+                        </td>
                     </tr>
                     {% endfor %}
                 </table>
