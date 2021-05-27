@@ -9,12 +9,12 @@ access = BaseWorld.Access.RED
 
 
 async def enable(services):
-    environments = BaseWorld.strip_yml('plugins/builder/conf/environments.yml')
-    BaseWorld.apply_config('build', BaseWorld.strip_yml('plugins/builder/conf/environments.yml')[0])
+    environments = BaseWorld.strip_yml('plugins/builder/conf/environments.yml')[0]
+    BaseWorld.apply_config('build', environments)
     build_svc = BuildService(services)
     await build_svc.stage_enabled_dockers()
 
-    envs = environments[0]['enabled']
+    envs = environments['enabled']
     builder_gui = BuilderGUI(services, name, description, envs)
     app = services.get('app_svc').application
     app.router.add_route('GET', '/plugin/builder/gui', builder_gui.splash)
