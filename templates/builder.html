@@ -1,0 +1,30 @@
+<div id="builder" class="section-profile">
+    <div class="row">
+        <div class="topleft duk-icon"><img onclick="removeSection('builder')" src="/gui/img/x.png"></div>
+        <div class="column section-border" style="flex:37%;text-align:left;padding:15px;">
+            <h1 style="font-size:70px;margin-top:-20px;">{{ name }}</h1>
+            <p style="margin-top:-55px">{{ description }}</p>
+        </div>
+        <div class="column" style="flex:67%;padding:15px;text-align: left">
+            <div class="row" style="border: none;margin: -45px -50px -50px;background-image:none">
+                <table class="obfuscation-table" border=1 frame=void rules=rows>
+                    <tr>
+                    {% for env in envs %}
+                        {% for key, value in envs[env].items() %}
+                            <tr>
+                                <td>
+                                {% if loop.first %}
+                                        <h4>{{ env }}</h4>
+                                {% endif %}
+                                </td>
+                                <td>{{ key }}</td>
+                                <td>{{ value }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
