@@ -16,7 +16,7 @@ class BuilderGUI(BaseWorld):
         self.description = description
         self.envs = envs
 
-        self.log = logging.getLogger('emu_gui')
+        self.log = logging.getLogger('builder_gui')
 
     @template('builder.html')
     async def splash(self, request):
