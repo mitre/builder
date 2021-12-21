@@ -3,7 +3,7 @@ from app.utility.base_world import BaseWorld
 from plugins.builder.app.builder_gui import BuilderGUI
 
 name = 'builder'
-description = 'Dynamically compile ability code via docker containers'
+description = ''
 address = '/plugin/builder/gui'
 access = BaseWorld.Access.RED
 
