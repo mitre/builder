@@ -1,6 +1,7 @@
 import logging
 
 from aiohttp_jinja2 import template
+from aiohttp import web
 
 from app.service.auth_svc import for_all_public_methods, check_authorization
 from app.utility.base_world import BaseWorld
@@ -21,3 +22,7 @@ class BuilderGUI(BaseWorld):
     @template('builder.html')
     async def splash(self, request):
         return dict(name=self.name, description=self.description, envs=self.envs)
+    
+    async def get_environments(self, request):
+        # Return a json response of environments
+        return web.json_response(self.envs)
