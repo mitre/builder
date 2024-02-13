@@ -18,6 +18,7 @@ async def enable(services):
     builder_gui = BuilderGUI(services, name, description, envs)
     app = services.get('app_svc').application
     app.router.add_route('GET', '/plugin/builder/gui', builder_gui.splash)
+    app.router.add_route('GET', '/plugin/builder/environment', builder_gui.get_environments)
 
 
 async def expansion(services):

@@ -152,7 +152,7 @@ class BuildService(BaseService):
             self.log.debug('Build directory created for %s', language)
 
     def _stage_payload(self, language, payload):
-        """Move Docker-built payload to CALDERA payload directory
+        """Move Docker-built payload to Caldera payload directory
 
         Adds special rules:
         - Appends .exe to .donut files.

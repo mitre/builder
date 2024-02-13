@@ -1,6 +1,6 @@
-# CALDERA Plugin: Builder
+# MITRE Caldera Plugin: Builder
 
-The Builder plugin enables CALDERA to dynamically compile code segments into payloads that can be executed as abilities 
+The Builder plugin enables Caldera to dynamically compile code segments into payloads that can be executed as abilities 
 by implants.
 
 ### Installation:
