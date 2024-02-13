@@ -45,6 +45,16 @@ function ubuntu_install_docker() {
     exec sudo su -l $USER
 }
 
+function kali_install_docker() {
+    install_wrapper "Remove existing docker stubs" "apt-get remove -y docker docker-engine docker.io containerd runc" $WARNING
+    install_wrapper "Install pre-requisites" "apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common" $WARNING
+    install_wrapper "Add docker GPG key" "curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --batch --yes --dearmor -o /etc/apt/trusted.gpg.d/docker-ce-archive-keyring.gpg" $WARNING
+    install_wrapper "Add docker repository" "add-apt-repository 'deb [arch=amd64] https://download.docker.com/linux/debian bullseye stable' -y" $WARNING
+    install_wrapper "Install docker" "apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io" $WARNING
+    install_wrapper "Add user to docker group" "usermod $USER -a -G docker" $CRITICAL
+    exec sudo su -l $USER
+}
+
 function darwin() {
     [[ $EUID -ne 0 ]] && echo "You must run the script with sudo." && exit 1
     echo "[X] Not implemented at this time..."1
@@ -61,7 +71,7 @@ function kali() {
     [[ $EUID -ne 0 ]] && echo "You must run the script with sudo." && exit 1
     echo "[-] Installing on Kali (Debian)..."
     initialize_log
-    ubuntu_install_docker
+    kali_install_docker
 }
 
 function centos() {

@@ -1,1 +1,1 @@
-docker
+docker~=6.1.0
