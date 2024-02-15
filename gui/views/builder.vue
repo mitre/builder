@@ -2,11 +2,12 @@
 import { onMounted, ref } from "vue";
 const $api = inject("$api");
 
-const envs = ref();
+let envs = ref();
 
 onMounted(async () => {
   try {
-    envs = await $api.get("/plugin/builder/environment");
+    const res = await $api.get("/plugin/builder/environment");
+    envs.value = res.data.envs;
   } catch (error) {
     console.error(error);
   }
