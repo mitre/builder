@@ -25,11 +25,17 @@ onMounted(async () => {
     thead
       tr
         th Name
-        th Description
-        th
+        th Docker image
+        th File extension
+        th Working directory
+        th Build command
     tbody
-      tr(v-for="env in envs")
-        td {{ env }}
+      tr(v-for="(env, name) in envs" :key="name")
+        td {{ name }}
+        td {{ env.docker }}
+        td {{ env.extension }}
+        td {{ env.workdir }}
+        td {{ env.build_command }}
 .is-flex.is-align-items-center.is-justify-content-center
     a.button.is-primary(href="/docs/Dynamically-Compiled-Payloads.html" target="_blank")
         span Read more about using Builder to create dynamically-compiled payloads here:
