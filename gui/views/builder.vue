@@ -17,7 +17,7 @@ onMounted(async () => {
 <template lang="pug">
 .content    
   h2 Builder
-  p Dynamically compile ability code via docker containershr
+  p Dynamically compile ability code via docker containers.
 
 .content
 <!-- a table with a list of envs -->
