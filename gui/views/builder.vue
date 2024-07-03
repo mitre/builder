@@ -1,12 +1,13 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { ref, inject, onMounted } from "vue";
 const $api = inject("$api");
 
 const envs = ref();
 
 onMounted(async () => {
   try {
-    envs = await $api.get("/plugin/builder/environment");
+    const res = await $api.get("/plugin/builder/environment");
+    envs.value = res.data;
   } catch (error) {
     console.error(error);
   }
