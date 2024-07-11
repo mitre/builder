@@ -1,12 +1,13 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { ref, inject, onMounted } from "vue";
 const $api = inject("$api");
 
 const envs = ref();
 
 onMounted(async () => {
   try {
-    envs = await $api.get("/plugin/builder/environment");
+    const res = await $api.get("/plugin/builder/environment");
+    envs.value = res.data;
   } catch (error) {
     console.error(error);
   }
@@ -16,7 +17,7 @@ onMounted(async () => {
 <template lang="pug">
 .content    
   h2 Builder
-  p Dynamically compile ability code via docker containershr
+  p Dynamically compile ability code via docker containers.
 
 .content
 <!-- a table with a list of envs -->
@@ -24,11 +25,17 @@ onMounted(async () => {
     thead
       tr
         th Name
-        th Description
-        th
+        th Docker image
+        th File extension
+        th Working directory
+        th Build command
     tbody
-      tr(v-for="env in envs")
-        td {{ env }}
+      tr(v-for="(env, name) in envs" :key="name")
+        td {{ name }}
+        td {{ env.docker }}
+        td {{ env.extension }}
+        td {{ env.workdir }}
+        td {{ env.build_command }}
 .is-flex.is-align-items-center.is-justify-content-center
     a.button.is-primary(href="/docs/Dynamically-Compiled-Payloads.html" target="_blank")
         span Read more about using Builder to create dynamically-compiled payloads here:
