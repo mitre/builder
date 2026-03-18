@@ -2,13 +2,11 @@
 
 Tests cover:
 - hook.py syntax validation via ast.parse
-- Abilities YAML validation (if present)
-- Requirements.txt dependency checks (if present)
+- Requirements.txt dependency checks
 - Security pattern scanning across Python source files
 """
 import ast
 import os
-import glob
 import re
 
 import pytest
@@ -22,7 +20,7 @@ class TestHookSyntax:
     def test_hook_parses(self):
         """hook.py should be valid Python syntax."""
         hook_path = os.path.join(PLUGIN_DIR, "hook.py")
-        with open(hook_path, "r") as fh:
+        with open(hook_path, encoding='utf-8') as fh:
             source = fh.read()
         tree = ast.parse(source, filename="hook.py")
         assert isinstance(tree, ast.Module)
@@ -30,7 +28,7 @@ class TestHookSyntax:
     def test_hook_has_no_bare_exec(self):
         """hook.py should not contain bare exec() calls."""
         hook_path = os.path.join(PLUGIN_DIR, "hook.py")
-        with open(hook_path, "r") as fh:
+        with open(hook_path, encoding='utf-8') as fh:
             source = fh.read()
         tree = ast.parse(source)
         for node in ast.walk(tree):
@@ -47,7 +45,7 @@ class TestHookSyntax:
                 if not fname.endswith(".py"):
                     continue
                 fpath = os.path.join(root, fname)
-                with open(fpath, "r") as fh:
+                with open(fpath, encoding='utf-8') as fh:
                     source = fh.read()
                 try:
                     ast.parse(source, filename=fname)
@@ -66,12 +64,13 @@ class TestRequirements:
     def test_requirements_parseable(self):
         """Each line in requirements.txt should be a valid dependency spec."""
         req_path = os.path.join(PLUGIN_DIR, "requirements.txt")
-        with open(req_path, "r") as fh:
+        with open(req_path, encoding='utf-8') as fh:
             for lineno, line in enumerate(fh, 1):
                 line = line.strip()
                 if not line or line.startswith("#"):
                     continue
-                for ch in [";", "|", "&", "`", "$"]:
+                # Semicolons are valid in requirements for environment markers
+                for ch in ["|", "&", "`", "$"]:
                     assert ch not in line, (
                         f"Suspicious character '{ch}' in requirements.txt line {lineno}: {line}"
                     )
@@ -87,7 +86,7 @@ class TestRequirements:
             "setuptools": ["49.1.0"],
         }
         req_path = os.path.join(PLUGIN_DIR, "requirements.txt")
-        with open(req_path, "r") as fh:
+        with open(req_path, encoding='utf-8') as fh:
             for line in fh:
                 line = line.strip().lower()
                 if not line or line.startswith("#"):
@@ -119,7 +118,7 @@ class TestSecurityPatterns:
     def test_no_verify_false(self):
         """No Python file should use verify=False (disables TLS verification)."""
         for fpath in self._py_files():
-            with open(fpath, "r") as fh:
+            with open(fpath, encoding='utf-8') as fh:
                 for lineno, line in enumerate(fh, 1):
                     if "verify=False" in line and not line.strip().startswith("#"):
                         rel = os.path.relpath(fpath, PLUGIN_DIR)
@@ -134,7 +133,7 @@ class TestSecurityPatterns:
             fname = os.path.basename(fpath)
             if any(fname.startswith(a) or fname == a for a in allowlist):
                 continue
-            with open(fpath, "r") as fh:
+            with open(fpath, encoding='utf-8') as fh:
                 for lineno, line in enumerate(fh, 1):
                     stripped = line.strip()
                     if stripped.startswith("#"):
@@ -149,7 +148,7 @@ class TestSecurityPatterns:
         """requests.get/post/put/delete calls should include a timeout parameter."""
         pattern = re.compile(r"requests\.(get|post|put|delete|patch|head)\(")
         for fpath in self._py_files():
-            with open(fpath, "r") as fh:
+            with open(fpath, encoding='utf-8') as fh:
                 source = fh.read()
             for match in pattern.finditer(source):
                 start = match.start()
@@ -170,4 +169,3 @@ class TestSecurityPatterns:
                     pytest.fail(
                         f"requests call without timeout at {rel}:{line_num}"
                     )
-
