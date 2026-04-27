@@ -30,7 +30,7 @@ sudo ./install.sh
 2. docker-py
 3. Go compiler
 
-## Getting Started
+## Getting Started:
 
 Here is a preview of a sample ability:
 The following ability will compile the HelloWorld.exe executable, copy it to the machine running the agent, and execute
