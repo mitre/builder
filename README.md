@@ -10,12 +10,12 @@ Payload generation / infrastructure
 
 ### Known Limitations:
 Currently, only C#, C, C++, and Golang are supported
-•	`csharp`: Compile C# executable using Mono
-•	`cpp_windows_x64`: Compile 64-bit Windows C++ executable using MXE/MinGW-w64
-•	`cpp_windows_x86`: Compile 64-bit Windows C++ executable using MXE/MinGW-w64
-•	`c_windows_x64`: Compile 64-bit Windows C executable using MXE/MinGW-w64
-•	`c_windows_x86`: Compile 64-bit Windows C executable using MXE/MinGW-w64
-•	`go_windows`: Build Golang executable for Windows
+- •	`csharp`: Compile C# executable using Mono
+- •	`cpp_windows_x64`: Compile 64-bit Windows C++ executable using MXE/MinGW-w64
+- •	`cpp_windows_x86`: Compile 64-bit Windows C++ executable using MXE/MinGW-w64
+- •	`c_windows_x64`: Compile 64-bit Windows C executable using MXE/MinGW-w64
+- •	`c_windows_x86`: Compile 64-bit Windows C executable using MXE/MinGW-w64
+- •	`go_windows`: Build Golang executable for Windows
 
 ## Installation:
 
