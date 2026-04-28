@@ -2,7 +2,7 @@
 
 ## Overview:
 
-The Builder plugin enables Caldera to dynamically compile code segments into payloads that can be executed as abilities 
+The Builder plugin enables Caldera to dynamically compile code segments into payloads that can be executed as abilities
 by implants.
 
 ### Context:
