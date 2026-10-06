@@ -2,6 +2,7 @@ import os
 import shutil
 import json
 import logging
+import re
 
 import docker
 
@@ -274,6 +275,8 @@ class BuildService(BaseService):
         """
         build_file = '{}.{}'.format(self.build_file, env['extension']) if env.get('extension') else self.build_file
         build_command = env['build_command'].replace('#{code}', build_file)
+        if not re.fullmatch(r'[A-Za-z0-9._\-]+', executor.build_target or ''):
+            raise ValueError('Invalid build_target (expected a plain filename): %r' % executor.build_target)
         build_command = build_command.replace('#{build_target}', executor.build_target)
         build_command = self._replace_build_payload_vars(executor, build_command)
         return build_command
