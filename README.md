@@ -12,7 +12,15 @@ sudo ./install.sh
 
 ### Dependencies/Requirements:
 1. Docker
-2. docker-py
+2. Docker Python SDK
+
+#### Docker Deployment Requirement
+To enable the Builder plugin from inside a Caldera container, it must have privileged access to the Docker socket.
+
+```yaml
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+```
 
 ### Sample Ability
 

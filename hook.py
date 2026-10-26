@@ -1,3 +1,10 @@
+import os
+import sys
+
+vendor_path = os.path.join(os.path.dirname(__file__), 'vendor')
+if vendor_path not in sys.path:
+    sys.path.insert(0, vendor_path)
+
 from plugins.builder.app.build_svc import BuildService
 from app.utility.base_world import BaseWorld
 from plugins.builder.app.builder_gui import BuilderGUI

@@ -2,8 +2,11 @@ import os
 import shutil
 import json
 import logging
+import tarfile
 
-import docker
+from io import BytesIO
+
+import docker, docker.errors
 
 from app.utility.base_service import BaseService
 
@@ -47,7 +50,9 @@ class BuildService(BaseService):
                 executor.payloads.remove(module)
 
             if not executor.command:
-                executor.command = self._build_command_block_syntax(payload=executor.build_target)
+                executor.command = self._build_command_block_syntax(
+                    payload=executor.build_target, platform=executor.platform
+                )
             if executor.build_target not in executor.payloads:
                 executor.payloads.append(executor.build_target)
 
@@ -120,7 +125,7 @@ class BuildService(BaseService):
         executor.additional_info['build_error'] = False
 
     @staticmethod
-    def _build_command_block_syntax(payload):
+    def _build_command_block_syntax(payload, platform='windows'):
         """Creates the command to run for a given payload
 
         :param payload: Payload name
@@ -128,6 +133,10 @@ class BuildService(BaseService):
         :return: Agent command to run
         :rtype: string
         """
+        if platform in ["linux", "darwin"]:
+            return "./{}".format(payload)
+
+        # Default backslash behavior for Windows environments
         return '.\\{}'.format(payload)
 
     async def _download_docker_images(self):
@@ -203,6 +212,13 @@ class BuildService(BaseService):
             for d in dirs:
                 shutil.rmtree(os.path.join(root, d))
 
+    @staticmethod
+    def _is_running_in_container():
+        """Detect if Caldera is running in a container"""
+        if os.path.exists("/.dockerenv"):
+            return True
+        return False
+
     def _run_target_docker(self, env, ability, executor, build_command):
         """Run docker container to build ability files
 
@@ -215,16 +231,119 @@ class BuildService(BaseService):
         :param build_command: Command to run on docker container
         :type build_command: string
         """
-        container = self.docker_client.containers.run(image=self.build_envs[executor.language].short_id, remove=True,
-                                                      command=build_command,
-                                                      working_dir=env['workdir'],
-                                                      user=os.getuid(),
-                                                      volumes={os.path.abspath(
-                                                               os.path.join(self.build_directory, executor.language)):
-                                                               dict(bind=env['workdir'], mode='rw')}, detach=True)
-        exit_information = container.wait()
-        self.log.debug('Container for %s (%s/%s) ran for ability ID %s: %s', executor.language, executor.platform,
-                       executor.name, ability.ability_id, exit_information)
+
+        in_container = self._is_running_in_container()
+        local_build_dir = os.path.abspath(
+            os.path.join(self.build_directory, executor.language)
+        )
+
+        # Create named volume for builder
+        volume_name = f"builder_vol_{executor.language}_{ability.ability_id}"
+        volume = None
+
+        if in_container:
+            try:
+                volume = self.docker_client.volumes.get(volume_name)
+            except docker.errors.NotFound:
+                volume = self.docker_client.volumes.create(name=volume_name)
+            volume_mount = volume_name
+            self.log.debug("Initialized Docker volume: %s", volume_name)
+        else:
+            volume_mount = local_build_dir
+
+        container = None
+        try:
+            container = self.docker_client.containers.create(
+                image=self.build_envs[executor.language].short_id,
+                command=build_command,
+                working_dir=env["workdir"],
+                user=os.getuid() if hasattr(os, "getuid") else None,
+                volumes={volume_mount: {"bind": env["workdir"], "mode": "rw"}},
+            )
+
+            # If in a container, sync source data into the volume
+            if in_container and os.path.exists(local_build_dir):
+                tar_stream = BytesIO()
+                with tarfile.open(fileobj=tar_stream, mode="w") as tar:
+                    tar.add(local_build_dir, arcname=".")
+                tar_stream.seek(0)
+                container.put_archive(path=env["workdir"], data=tar_stream)
+
+            # Start the container to build the payload
+            container.start()
+            exit_information = container.wait()
+            exit_code = exit_information.get("StatusCode", 0)
+
+            if in_container:
+                try:
+                    bits, stat = container.get_archive(env["workdir"])
+                    tar_stream = BytesIO(b"".join(bits))
+                    tar_stream.seek(0)
+
+                    with tarfile.open(fileobj=tar_stream, mode="r") as tar:
+                        root_dir = stat.get("name", "src")
+                        for member in tar.getmembers():
+                            clean_name = member.name
+                            if member.name.startswith(root_dir + "/"):
+                                clean_name = member.name[len(root_dir) + 1 :]
+                            elif member.name == root_dir:
+                                continue
+
+                            if clean_name == "error.log":
+                                error_file = tar.extractfile(member)
+                                if error_file:
+                                    errors = error_file.read().decode("utf-8").strip()
+                                    if errors:
+                                        self.log.info(
+                                            "--- [BUILD LOGS (error.log)] ---\n%s", errors
+                                        )
+
+                            member.name = clean_name
+                            tar.extract(member, path=local_build_dir)
+                except Exception as e:
+                    self.log.error("Failed to unpack containerized assets: %s", e)
+
+            else:
+                error_log_host_path = os.path.join(local_build_dir, "error.log")
+                if os.path.exists(error_log_host_path):
+                    try:
+                        with open(error_log_host_path, "r") as ef:
+                            errors = ef.read().strip()
+                            if errors:
+                                self.log.info(
+                                    "--- [BUILD LOGS (error.log)] ---\n%s", errors
+                                )
+                    except Exception as e:
+                        self.log.info("Failed to read error.log: %s", e)
+
+            expected_payload = os.path.join(local_build_dir, executor.build_target)
+            if not os.path.exists(expected_payload):
+                self.log.error(
+                    "FAILURE: Compilation completed but binary missing from host path: %s",
+                    expected_payload,
+                )
+
+            self.log.debug(
+                "Container for %s (%s/%s) ran for ability ID %s with exit code: %s",
+                executor.language,
+                executor.platform,
+                executor.name,
+                ability.ability_id,
+                exit_code,
+            )
+
+        finally:
+            if container:
+                try:
+                    container.remove(force=True)
+                except docker.errors.APIError:
+                    pass
+            if volume:
+                try:
+                    volume.remove(force=True)
+                except docker.errors.APIError:
+                    pass
+
 
     def _check_errors(self, language):
         """Check for errors which occurred during the build
